@@ -9,29 +9,28 @@ on:
 jobs:
   build:
     runs-on: windows-latest
-
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Install dependencies
-      run: |
-        choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System'
-        choco install boost-msvc-14.3
+      - name: Install dependencies
+        run: |
+          choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System'
+          choco install boost-msvc-14.3
 
-    - name: Configure CMake
-      run: |
-        mkdir build
-        cd build
-        cmake -G "Visual Studio 17 2022" -A x64 ..
+      - name: Configure CMake
+        run: |
+          mkdir build
+          cd build
+          cmake -G "Visual Studio 17 2022" -A x64 ..
 
-    - name: Build with MSVC
-      run: |
-        cd build
-        cmake --build . --config Release
+      - name: Build
+        run: |
+          cd build
+          cmake --build . --config Release
 
-    - name: Upload artifact (akochan.exe)
-      uses: actions/upload-artifact@v4
-      with:
-        name: akochan-windows
-        path: build/Release/akochan.exe
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: akochan-windows
+          path: build/Release/akochan.exe
