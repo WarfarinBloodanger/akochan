@@ -13,16 +13,20 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install MinGW and dependencies
+      - name: Install MinGW and Boost
         run: |
           choco install mingw -y
+          choco install boost-msvc-14.3 -y --force --installargs "ADDLOCAL=ALL"
           refreshenv
-          g++ --version  # 验证安装
+
+      - name: Set Boost environment variables
+        run: |
+          echo "BOOST_ROOT=C:\local\boost_1_82_0" >> $GITHUB_ENV
+          echo "PATH=$PATH;C:\mingw-w64\x86_64-8.1.0-posix-seh-rt_v6-rev0\mingw64\bin" >> $GITHUB_ENV
 
       - name: Build Akochan
         run: |
-          make -f Makefile CC=g++
-          ls -l ./akochan.exe  # 检查生成的可执行文件
+          make -f Makefile.win CXX=g++ INCLUDE="-I$env:BOOST_ROOT"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
