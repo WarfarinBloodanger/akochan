@@ -1,34 +1,51 @@
-name: Build Akochan for Windows
+name: Build akochan on Windows
 
 on:
   push:
-    branches: [ "master" ]
+    branches: [ master ]
   pull_request:
-    branches: [ "master" ]
+    branches: [ master ]
 
 jobs:
   build:
     runs-on: windows-latest
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v3
 
-      - name: Install MinGW and Boost
-        run: |
-          choco install mingw -y
-          choco install boost-msvc-14.3 -y --force --installargs "ADDLOCAL=ALL"
+    - name: Set up MSVC
+      uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Set Boost environment variables
-        run: |
-          echo "BOOST_ROOT=C:\local\boost_1_82_0" >> $GITHUB_ENV
-          echo "PATH=$PATH;C:\mingw-w64\x86_64-8.1.0-posix-seh-rt_v6-rev0\mingw64\bin" >> $GITHUB_ENV
+    - name: Install Boost
+      run: |
+        # 下载并安装 Boost
+        $url = "https://sourceforge.net/projects/boost/files/boost/1.82.0/boost_1_82_0-msvc-14.3-64.exe/download"
+        $output = "$env:TEMP\boost_setup.exe"
+        Invoke-WebRequest -Uri $url -OutFile $output
+        Start-Process -FilePath $output -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-", "/DIR=C:\boost" -Wait
+        
+        # 设置 Boost 环境变量
+        echo "BOOST_ROOT=C:\boost" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        echo "BOOST_LIBRARYDIR=C:\boost\lib64-msvc-14.3" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
-      - name: Build Akochan
-        run: |
-          make -f Makefile.win CXX=g++ INCLUDE="-I$env:BOOST_ROOT"
+    - name: Install build tools
+      run: |
+        # 安装必要的构建工具
+        choco install make -y
+        choco install mingw -y
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: akochan-windows
-          path: ./akochan.exe
+    - name: Build with Makefile
+      run: |
+        # 使用 Makefile 构建
+        make
+        # 如果 make 命令不是默认的，可能需要指定具体的 make 程序路径
+        # 例如: C:\ProgramData\chocolatey\bin\make.exe
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: akochan-build
+        path: |
+          *.exe
+          *.dll
