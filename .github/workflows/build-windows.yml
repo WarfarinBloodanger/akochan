@@ -2,9 +2,9 @@ name: Build akochan on Windows
 
 on:
   push:
-    branches: [ master ]
+    branches: [ main ]
   pull_request:
-    branches: [ master ]
+    branches: [ main ]
 
 jobs:
   build:
@@ -19,11 +19,17 @@ jobs:
 
     - name: Install Boost
       run: |
-        # 下载并安装 Boost
-        $url = "https://sourceforge.net/projects/boost/files/boost/1.82.0/boost_1_82_0-msvc-14.3-64.exe/download"
-        $output = "$env:TEMP\boost_setup.exe"
-        Invoke-WebRequest -Uri $url -OutFile $output
-        Start-Process -FilePath $output -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-", "/DIR=C:\boost" -Wait
+        # 下载 Boost 二进制 ZIP 包
+        $boostVersion = "1.82.0"
+        $boostUrl = "https://boostorg.jfrog.io/artifactory/main/release/$boostVersion/binaries/boost_$($boostVersion.Replace('.','_'))-msvc-14.3-64.zip"
+        $output = "$env:TEMP\boost.zip"
+        
+        # 使用 TLS 1.2 协议下载
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        Invoke-WebRequest -Uri $boostUrl -OutFile $output
+        
+        # 解压到 C:\boost
+        Expand-Archive -Path $output -DestinationPath C:\boost
         
         # 设置 Boost 环境变量
         echo "BOOST_ROOT=C:\boost" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
@@ -36,14 +42,13 @@ jobs:
         choco install mingw -y
 
     - name: Build with Makefile
+      shell: cmd
       run: |
         # 使用 Makefile 构建
         make
-        # 如果 make 命令不是默认的，可能需要指定具体的 make 程序路径
-        # 例如: C:\ProgramData\chocolatey\bin\make.exe
 
     - name: Upload artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v3
       with:
         name: akochan-build
         path: |
