@@ -21,7 +21,7 @@ jobs:
 
       - name: Build Akochan
         run: |
-          make -f Makefile.win CC=g++
+          make -f Makefile CC=g++
           ls -l ./akochan.exe  # 检查生成的可执行文件
 
       - name: Upload artifact
