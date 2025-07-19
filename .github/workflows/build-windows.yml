@@ -1,4 +1,4 @@
-name: Build akochan on Windows
+name: Windows Build
 
 on:
   push:
@@ -12,45 +12,48 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v2
 
-    - name: Set up MSVC
-      uses: ilammy/msvc-dev-cmd@v1
-
-    - name: Install Boost
+    - name: Setup Boost
       run: |
-        # 下载 Boost 二进制 ZIP 包
-        $boostVersion = "1.82.0"
-        $boostUrl = "https://boostorg.jfrog.io/artifactory/main/release/$boostVersion/binaries/boost_$($boostVersion.Replace('.','_'))-msvc-14.3-64.zip"
-        $output = "$env:TEMP\boost.zip"
+        # 下载并安装 Boost 库
+        $url = "https://sourceforge.net/projects/boost/files/boost/1.70.0/boost_1_70_0.7z/download"
+        $output = "boost.7z"
+        Invoke-WebRequest -Uri $url -OutFile $output
         
-        # 使用 TLS 1.2 协议下载
-        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-        Invoke-WebRequest -Uri $boostUrl -OutFile $output
+        # 解压 Boost
+        7z x boost.7z -o"C:\boost" > $null
         
-        # 解压到 C:\boost
-        Expand-Archive -Path $output -DestinationPath C:\boost
-        
-        # 设置 Boost 环境变量
-        echo "BOOST_ROOT=C:\boost" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-        echo "BOOST_LIBRARYDIR=C:\boost\lib64-msvc-14.3" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        # 设置环境变量
+        echo "BOOST_ROOT=C:\boost\boost_1_70_0" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        echo "BOOST_LIBRARYDIR=C:\boost\boost_1_70_0\lib64-msvc-14.2" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
-    - name: Install build tools
+    - name: Install make
+      run: choco install make -y
+
+    - name: Build ai.dll
+      working-directory: ./ai_src
       run: |
-        # 安装必要的构建工具
-        choco install make -y
-        choco install mingw -y
+        make LIBS="-lboost_system-mgw62-mt-x64-1_70"
+        # 检查是否生成成功
+        if (!(Test-Path "../ai.dll")) {
+            Write-Error "ai.dll was not created!"
+            exit 1
+        }
 
-    - name: Build with Makefile
-      shell: cmd
+    - name: Build system.exe
       run: |
-        # 使用 Makefile 构建
-        make
+        make LIBS="-lboost_system-mgw62-mt-x64-1_70"
+        # 检查是否生成成功
+        if (!(Test-Path "system.exe")) {
+            Write-Error "system.exe was not created!"
+            exit 1
+        }
 
-    - name: Upload artifact
+    - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: akochan-build
+        name: build-output
         path: |
-          *.exe
-          *.dll
+          system.exe
+          ai.dll
