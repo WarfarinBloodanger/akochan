@@ -6,54 +6,47 @@ on:
   pull_request:
     branches: [ master ]
 
+env:
+  BOOST_VERSION: 1.70.0
+  BOOST_ROOT: C:\local\boost_${{ env.BOOST_VERSION }}
+
 jobs:
   build:
     runs-on: windows-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v2
+    - uses: actions/checkout@v2
 
-    - name: Setup Boost
+    - name: Cache Boost
+      id: cache-boost
+      uses: actions/cache@v2
+      with:
+        path: ${{ env.BOOST_ROOT }}
+        key: boost-${{ env.BOOST_VERSION }}
+
+    - name: Install Boost (if not cached)
+      if: steps.cache-boost.outputs.cache-hit != 'true'
       run: |
-        # 下载并安装 Boost 库
-        $url = "https://sourceforge.net/projects/boost/files/boost/1.70.0/boost_1_70_0.7z/download"
-        $output = "boost.7z"
-        Invoke-WebRequest -Uri $url -OutFile $output
-        
-        # 解压 Boost
-        7z x boost.7z -o"C:\boost" > $null
-        
-        # 设置环境变量
-        echo "BOOST_ROOT=C:\boost\boost_1_70_0" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-        echo "BOOST_LIBRARYDIR=C:\boost\boost_1_70_0\lib64-msvc-14.2" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        Invoke-WebRequest -Uri "https://sourceforge.net/projects/boost/files/boost/${{ env.BOOST_VERSION }}/boost_${{ env.BOOST_VERSION//./_ }}-msvc-14.1-64.exe/download" -OutFile boost.exe
+        Start-Process -Wait -FilePath .\boost.exe -ArgumentList "-o${{ env.BOOST_ROOT }}\.. -y"
+        del boost.exe
 
-    - name: Install make
-      run: choco install make -y
+    - name: Set up environment
+      run: |
+        echo "BOOST_ROOT=${{ env.BOOST_ROOT }}" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        echo "BOOST_LIBRARYDIR=${{ env.BOOST_ROOT }}\lib64-msvc-14.1" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
     - name: Build ai.dll
-      working-directory: ./ai_src
-      run: |
-        make LIBS="-lboost_system-mgw62-mt-x64-1_70"
-        # 检查是否生成成功
-        if (!(Test-Path "../ai.dll")) {
-            Write-Error "ai.dll was not created!"
-            exit 1
-        }
+      working-directory: ai_src
+      run: make
 
     - name: Build system.exe
-      run: |
-        make LIBS="-lboost_system-mgw62-mt-x64-1_70"
-        # 检查是否生成成功
-        if (!(Test-Path "system.exe")) {
-            Write-Error "system.exe was not created!"
-            exit 1
-        }
+      run: make
 
     - name: Upload artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v2
       with:
-        name: build-output
+        name: windows-binaries
         path: |
           system.exe
           ai.dll
